@@ -31,6 +31,8 @@ class Cesar1312:
             offline: If True, the instrument is not connected and commands
                 are not sent but rather printed to the console.
         """
+        if debug:
+            print(f"Initializing Cesar 1312 RF Generator. {port=}, {baud=}, {offline=}")
         self._debug = debug
         self._offline = offline
 
