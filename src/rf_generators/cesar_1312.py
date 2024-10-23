@@ -1,4 +1,5 @@
 from enum import IntEnum
+import struct
 from typing import Literal, Union
 from warnings import warn
 
@@ -104,7 +105,7 @@ class Cesar1312:
     def control_mode(self, value: ControlMode) -> None:
         data = value.value
         cmd = 14
-        self.send_cmd(self._make_pkg(cmd, data))
+        self.send_cmd(self._make_pkg(cmd, self._make_data(1, data)))
 
     @property
     def regulation_mode(self) -> RegulationMode:
@@ -119,7 +120,7 @@ class Cesar1312:
     def regulation_mode(self, value: RegulationMode) -> None:
         data = value.value
         cmd = 3
-        self.send_cmd(self._make_pkg(cmd, data))
+        self.send_cmd(self._make_pkg(cmd, self._make_data(1, data)))
 
     @property
     def retries(self) -> int:
@@ -145,13 +146,24 @@ class Cesar1312:
     @property
     def setpoint(self) -> int:
         """Set/get the setpoint of the device in W."""
-        raise NotImplementedError("Getting the setpoint is not yet implemented.")
+        cmd = 164
+        pkg = self._make_pkg(cmd, None)
+        ret_data = self.query(pkg)[:2]
+        return struct.unpack("<H", ret_data)[0]
 
     @setpoint.setter
     def setpoint(self, value: int) -> None:
         data = self._make_data(2, value)
         cmd = 8
         self.send_cmd(self._make_pkg(cmd, data))
+
+    @property
+    def status(self):  # TODO: DEFINE RETURN TYPE
+        """Get the status via cmd 162"""
+        cmd = 162
+        pkg = self._make_pkg(cmd, None)
+        ret_data = self.query(pkg)
+        return ret_data.hex(":").split(":")
 
     # METHODS #
 
@@ -225,7 +237,10 @@ class Cesar1312:
             pkg += data
             pkg += checksum
 
-            if self._calculate_checksum(pkg) == 0:
+            if self._debug:
+                print(f"Full package: 0x{pkg.hex()}")
+
+            if self._calculate_checksum(pkg) == bytes([0x0]):
                 self._inst.write(self._ack)
                 got_pkg = True
                 break
@@ -250,7 +265,7 @@ class Cesar1312:
         Raises:
             ValueError: If no data is received from the device
         """
-        adr, cmd, data = self.query(pkg)
+        data = self.query(pkg)
         if data:
             csr = int(data.hex(), 16)
             if csr != 0:
