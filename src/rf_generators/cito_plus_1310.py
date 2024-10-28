@@ -26,8 +26,9 @@ class CitoPlus1310:
         self._debug = debug
         self._offline = offline
 
+        # TEST: The new manual says parity is even, the old one says no parity...
         if not offline:
-            self._inst = serial.Serial(port, baud, timeout=3)
+            self._inst = serial.Serial(port, baud, parity=serial.PARITY_EVEN, timeout=3)
 
         self._address = 0x0A
 
@@ -42,9 +43,14 @@ class CitoPlus1310:
             0x80: "Device exception",
         }
 
+        # TEST: Manual (old and new) say little-endian, but all examples are explicitly big-endian... So, let's go with big-endian and play with this crap.
         self._byte_order: Literal["little", "big"] = (
-            "little"  # little-endian, LSB first; "big" big-endian, MSB first.
+            "big"  # little-endian, LSB first; "big" big-endian, MSB first. According to examples, should be "big"
         )
+        self._byte_order_cmd = self._byte_order
+        self._byte_order_data = self._byte_order
+        self._byte_order_crc = self._byte_order
+
         self._header_as_short = (
             False  # If True, packs both header bytes as short using byte order.
         )
@@ -179,16 +185,16 @@ class CitoPlus1310:
 
         hdr = self._make_hdr(fn_code)
 
-        cmd = cmd_code.to_bytes(length=2, byteorder=self._byte_order)
+        cmd = cmd_code.to_bytes(length=2, byteorder=self._byte_order_cmd)
 
         if data is not None:
-            dat = data.to_bytes(length=data_length, byteorder=self._byte_order)
+            dat = data.to_bytes(length=data_length, byteorder=self._byte_order_data)
         else:
-            dat = (0x01).to_bytes(length=2, byteorder=self._byte_order)
+            dat = (0x01).to_bytes(length=2, byteorder=self._byte_order_data)
 
         pkg = hdr + cmd + dat
         crc = _crc16(pkg)
-        crc_bytes = crc.to_bytes(2, byteorder=self._byte_order)
+        crc_bytes = crc.to_bytes(2, byteorder=self._byte_order_crc)
 
         return pkg + crc_bytes
 
